@@ -1,0 +1,98 @@
+﻿@page "/brasileirao"
+@rendermode InteractiveServer
+@inject AppDbContext _context
+
+<PageTitle>Brasileirao</PageTitle>
+
+<h1>Campeonato Brasileiro 2023</h1>
+
+@if (timesQueryable == null)
+{
+    <p><em>Carregando...</em></p>
+}
+else
+{
+    <div class="grid">
+        <QuickGrid Items="@timesFiltroQueryable" @ref="refgrid"  Pagination="@pagination">
+            <PropertyColumn Property="@(p=> p.Nome)" Title="Time" />
+            <PropertyColumn Property="@(p => p.Pontos)" Sortable="true" />
+            <PropertyColumn Property="@(p => p.Jogos)" Title="J" />
+            <PropertyColumn Property="@(p => p.Vitorias)" Title="V" Sortable="true" />
+            <PropertyColumn Property="@(p => p.Empates)" Title="E" />
+            <PropertyColumn Property="@(p => p.Derrotas)" Title="D" />
+            <PropertyColumn Property="@(p => p.GolsPro)" Title="GP" />
+            <PropertyColumn Title="GC" Property="@(p => Calcular(p.GolsPro, p.SaldoGols))" />
+            <PropertyColumn Property="@(p => p.SaldoGols)" Title="SG" Sortable="true" />
+            <PropertyColumn Property="@(p => p.TemMundial)" Title="Mundial" >
+                <ColumnOptions>
+                    <input type="checkbox" @bind="temmundial" @bind:after="Filter" />Com Mundial
+                </ColumnOptions>
+            </PropertyColumn>
+            <TemplateColumn Title="Ação">
+                <button class="btn btn-primary" @onclick="@(() => ExibeStatus(context))">Status</button>
+            </TemplateColumn>
+        </QuickGrid>
+    </div>  
+    <div class="page-size-chooser">
+            times :
+            <select @bind="@pagination.ItemsPerPage">
+                <option>5</option>
+                <option>10</option>
+            </select>
+    </div>
+    <Paginator State="@pagination" />
+}
+<p>
+    <h3><b>@Mensagem</b></h3>
+</p>
+
+@code {
+
+    IQueryable<Time>? timesQueryable;
+    IQueryable<Time>? timesFiltroQueryable;
+    PaginationState pagination = new PaginationState { ItemsPerPage = 5 };
+    public string? Mensagem { get; set; } = string.Empty;
+    private bool temmundial;
+    QuickGrid<Time>? refgrid;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.Delay(300);
+        CarregaTimes();
+    }
+
+    private IQueryable<Time> CarregaTimes()
+    {
+        timesQueryable = _context.Times
+                        .OrderByDescending(t => t.Pontos)
+                          .ThenByDescending(t => t.Vitorias)
+                            .ThenByDescending(t => t.SaldoGols)
+                        .AsQueryable<Time>();
+
+        timesFiltroQueryable = timesQueryable;
+        return timesFiltroQueryable;
+    }
+    private int Calcular(int gols, int saldo)
+    {
+        return gols - saldo;
+    }
+
+    private void ExibeStatus(Time time)
+    {
+        Mensagem = $"{time.Nome} - {time.Status}";
+    }
+
+    public async Task Filter()
+    {
+        if (temmundial)
+        {
+            timesFiltroQueryable = timesQueryable.Where(p => p.TemMundial);
+        }
+        else
+        {
+            timesFiltroQueryable = timesQueryable;
+        }
+        await refgrid!.RefreshDataAsync();
+    }
+
+}
